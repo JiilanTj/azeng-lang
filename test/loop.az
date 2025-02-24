@@ -1,0 +1,9 @@
+bikin fungsi main() {
+    isi i = 1;
+    
+    ulang (i < 5) {
+        cetak("Perulangan ke-");
+        cetak(i);
+        isi i = i + 1;
+    }
+}

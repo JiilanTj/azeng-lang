@@ -1,0 +1,3 @@
+bikin fungsi main() {
+    cetak("Hello World!");
+}

@@ -1,0 +1,8 @@
+bikin fungsi main() {
+    isi x = 10;
+    cetak("Halo dunia!");
+    
+    kalo (x > 5) {
+        cetak("x lebih dari 5");
+    }
+}

@@ -7,7 +7,8 @@
 
 typedef struct {
     char* name;
-    int value;
+    char* value;
+    DataType type;
 } Variable;
 
 typedef struct Interpreter {
@@ -15,8 +16,15 @@ typedef struct Interpreter {
     int variable_count;
 } Interpreter;
 
+typedef struct {
+    DataType type;
+    char* value;
+} Value;
+
 Interpreter* create_interpreter(void);
 void free_interpreter(Interpreter* interpreter);
 void interpret(Interpreter* interpreter, ASTNode* node);
+Value* create_value(DataType type, const char* value);
+void free_value(Value* value);
 
 #endif

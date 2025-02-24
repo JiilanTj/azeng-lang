@@ -45,7 +45,8 @@ void free_interpreter(Interpreter* interpreter) {
 static Value* get_variable(Interpreter* interpreter, const char* name) {
     for (int i = 0; i < interpreter->variable_count; i++) {
         if (strcmp(interpreter->variables[i].name, name) == 0) {
-            return create_value(TYPE_INT, interpreter->variables[i].value);
+            return create_value(interpreter->variables[i].type, 
+                              interpreter->variables[i].value);
         }
     }
     fprintf(stderr, "Error: Variable '%s' not found\n", name);
@@ -59,6 +60,7 @@ static void set_variable(Interpreter* interpreter, const char* name, Value* valu
         if (strcmp(interpreter->variables[i].name, name) == 0) {
             free(interpreter->variables[i].value);
             interpreter->variables[i].value = strdup(value->value);
+            interpreter->variables[i].type = value->type;
             return;
         }
     }
@@ -67,7 +69,11 @@ static void set_variable(Interpreter* interpreter, const char* name, Value* valu
     if (interpreter->variable_count < MAX_VARIABLES) {
         interpreter->variables[interpreter->variable_count].name = strdup(name);
         interpreter->variables[interpreter->variable_count].value = strdup(value->value);
+        interpreter->variables[interpreter->variable_count].type = value->type;
         interpreter->variable_count++;
+    } else {
+        fprintf(stderr, "Error: Too many variables\n");
+        exit(1);
     }
 }
 
@@ -91,105 +97,108 @@ static Value* evaluate_expression(Interpreter* interpreter, ASTNode* node) {
             return get_variable(interpreter, node->value);
             
         case AST_CALL: {
-            // Handle function calls
-            if (strcmp(node->value, "tambah") == 0 && node->children_count == 2) {
-                Value* left = evaluate_expression(interpreter, node->children[0]);
-                Value* right = evaluate_expression(interpreter, node->children[1]);
+            Value *left = NULL, *right = NULL, *result = NULL;
+            
+            if (node->children_count == 2) {
+                left = evaluate_expression(interpreter, node->children[0]);
+                right = evaluate_expression(interpreter, node->children[1]);
                 
-                if (left->type == TYPE_INT && right->type == TYPE_INT) {
-                    int result = atoi(left->value) + atoi(right->value);
-                    char str_result[32];
-                    sprintf(str_result, "%d", result);
-                    return create_value(TYPE_INT, str_result);
+                if (strcmp(node->value, "tambah") == 0) {
+                    if (left->type == TYPE_INT && right->type == TYPE_INT) {
+                        int val = atoi(left->value) + atoi(right->value);
+                        char str_result[32];
+                        sprintf(str_result, "%d", val);
+                        result = create_value(TYPE_INT, str_result);
+                    }
+                }
+                else if (strcmp(node->value, "bagi") == 0) {
+                    if (left->type == TYPE_FLOAT && right->type == TYPE_FLOAT) {
+                        float val = atof(left->value) / atof(right->value);
+                        char str_result[32];
+                        sprintf(str_result, "%.2f", val);
+                        result = create_value(TYPE_FLOAT, str_result);
+                    }
+                }
+                else if (strcmp(node->value, "lebih_besar") == 0) {
+                    if (left->type == TYPE_INT && right->type == TYPE_INT) {
+                        int val = atoi(left->value) > atoi(right->value);
+                        result = create_value(TYPE_BOOLEAN, val ? "benar" : "salah");
+                    }
+                }
+                else if (strcmp(node->value, "gabung") == 0) {
+                    if (left->type == TYPE_STRING && right->type == TYPE_STRING) {
+                        char* str_result = malloc(strlen(left->value) + strlen(right->value) + 1);
+                        strcpy(str_result, left->value);
+                        strcat(str_result, right->value);
+                        result = create_value(TYPE_STRING, str_result);
+                        free(str_result);
+                    }
                 }
             }
-            else if (strcmp(node->value, "bagi") == 0 && node->children_count == 2) {
-                Value* left = evaluate_expression(interpreter, node->children[0]);
-                Value* right = evaluate_expression(interpreter, node->children[1]);
-                
-                if (left->type == TYPE_FLOAT && right->type == TYPE_FLOAT) {
-                    float result = atof(left->value) / atof(right->value);
-                    char str_result[32];
-                    sprintf(str_result, "%.2f", result);
-                    return create_value(TYPE_FLOAT, str_result);
-                }
-            }
-            else if (strcmp(node->value, "lebih_besar") == 0 && node->children_count == 2) {
-                Value* left = evaluate_expression(interpreter, node->children[0]);
-                Value* right = evaluate_expression(interpreter, node->children[1]);
-                
-                if (left->type == TYPE_INT && right->type == TYPE_INT) {
-                    int result = atoi(left->value) > atoi(right->value);
-                    return create_value(TYPE_BOOLEAN, result ? "benar" : "salah");
-                }
-            }
-            else if (strcmp(node->value, "gabung") == 0 && node->children_count == 2) {
-                Value* left = evaluate_expression(interpreter, node->children[0]);
-                Value* right = evaluate_expression(interpreter, node->children[1]);
-                
-                if (left->type == TYPE_STRING && right->type == TYPE_STRING) {
-                    char* result = malloc(strlen(left->value) + strlen(right->value) + 1);
-                    strcpy(result, left->value);
-                    strcat(result, right->value);
-                    Value* val = create_value(TYPE_STRING, result);
-                    free(result);
-                    return val;
-                }
-            }
-            break;
+            
+            if (left) free_value(left);
+            if (right) free_value(right);
+            return result ? result : create_value(TYPE_VOID, "0");
         }
             
         case AST_BINARY_OP: {
-            Value* left = evaluate_expression(interpreter, node->children[0]);
-            Value* right = evaluate_expression(interpreter, node->children[1]);
+            Value *left = evaluate_expression(interpreter, node->children[0]);
+            Value *right = evaluate_expression(interpreter, node->children[1]);
+            Value *result = NULL;
             
-            if (strcmp(node->value, "+") == 0) {
-                if (left->type == TYPE_INT && right->type == TYPE_INT) {
-                    int result = atoi(left->value) + atoi(right->value);
-                    char str_result[32];
-                    sprintf(str_result, "%d", result);
-                    Value* val = create_value(TYPE_INT, str_result);
-                    free_value(left);
-                    free_value(right);
-                    return val;
+            if (left->type == TYPE_INT && right->type == TYPE_INT) {
+                int l = atoi(left->value);
+                int r = atoi(right->value);
+                int val;
+                char str_result[32];
+                
+                if (strcmp(node->value, "+") == 0) val = l + r;
+                else if (strcmp(node->value, "-") == 0) val = l - r;
+                else if (strcmp(node->value, "*") == 0) val = l * r;
+                else if (strcmp(node->value, "/") == 0) val = l / r;
+                else if (strcmp(node->value, "<") == 0) {
+                    result = create_value(TYPE_BOOLEAN, l < r ? "benar" : "salah");
+                }
+                else if (strcmp(node->value, ">") == 0) {
+                    result = create_value(TYPE_BOOLEAN, l > r ? "benar" : "salah");
+                }
+                
+                if (!result) {
+                    sprintf(str_result, "%d", val);
+                    result = create_value(TYPE_INT, str_result);
                 }
             }
-            else if (strcmp(node->value, "<") == 0) {
-                if (left->type == TYPE_INT && right->type == TYPE_INT) {
-                    int l = atoi(left->value);
-                    int r = atoi(right->value);
-                    Value* val = create_value(TYPE_BOOLEAN, l < r ? "benar" : "salah");
-                    free_value(left);
-                    free_value(right);
-                    return val;
-                }
+            else if (left->type == TYPE_FLOAT && right->type == TYPE_FLOAT) {
+                float l = atof(left->value);
+                float r = atof(right->value);
+                float val;
+                char str_result[32];
+                
+                if (strcmp(node->value, "+") == 0) val = l + r;
+                else if (strcmp(node->value, "-") == 0) val = l - r;
+                else if (strcmp(node->value, "*") == 0) val = l * r;
+                else if (strcmp(node->value, "/") == 0) val = l / r;
+                
+                sprintf(str_result, "%.2f", val);
+                result = create_value(TYPE_FLOAT, str_result);
+            }
+            else if (left->type == TYPE_STRING && right->type == TYPE_STRING &&
+                     strcmp(node->value, "+") == 0) {
+                char* str_result = malloc(strlen(left->value) + strlen(right->value) + 1);
+                strcpy(str_result, left->value);
+                strcat(str_result, right->value);
+                result = create_value(TYPE_STRING, str_result);
+                free(str_result);
             }
             
             free_value(left);
             free_value(right);
-            return create_value(TYPE_VOID, "0");
+            return result ? result : create_value(TYPE_VOID, "0");
         }
-
-        // Tambahkan case untuk tipe AST lainnya
-        case AST_PROGRAM:
-        case AST_FUNCTION:
-        case AST_BLOCK:
-        case AST_VARIABLE_DECL:
-        case AST_IF:
-        case AST_WHILE:
-        case AST_ASSIGNMENT:
-        case AST_PARAMETER:
-        case AST_RETURN:
-        case AST_FUNCTION_DECL:
-            // Node-node ini tidak menghasilkan nilai dalam konteks expression
-            return create_value(TYPE_VOID, "0");
-            
+        
         default:
-            fprintf(stderr, "Error: Unexpected node type in expression\n");
             return create_value(TYPE_VOID, "0");
     }
-    
-    return create_value(TYPE_VOID, "0");
 }
 
 static void interpret_call(Interpreter* interpreter, ASTNode* node) {

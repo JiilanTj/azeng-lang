@@ -43,9 +43,31 @@ static char advance(Lexer* lexer) {
     return c;
 }
 
-static void skip_whitespace(Lexer* lexer) {
-    while (isspace(peek(lexer))) {
-        advance(lexer);
+static char peek_next(Lexer* lexer) {
+    if ((size_t)lexer->position + 1 >= strlen(lexer->source)) {
+        return '\0';
+    }
+    return lexer->source[lexer->position + 1];
+}
+
+static void skip_whitespace_and_comments(Lexer* lexer) {
+    while (peek(lexer)) {
+        if (isspace(peek(lexer))) {
+            if (peek(lexer) == '\n') {
+                lexer->line++;
+                lexer->column = 0;
+            }
+            advance(lexer);
+        }
+        // Skip single-line comments
+        else if (peek(lexer) == '/' && peek_next(lexer) == '/') {
+            while (peek(lexer) && peek(lexer) != '\n') {
+                advance(lexer);
+            }
+        }
+        else {
+            break;
+        }
     }
 }
 
@@ -128,7 +150,7 @@ Token* get_next_token(Lexer* lexer) {
         return NULL;
     }
 
-    skip_whitespace(lexer);
+    skip_whitespace_and_comments(lexer);
     
     char c = peek(lexer);
     int current_line = lexer->line;

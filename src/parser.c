@@ -10,6 +10,7 @@
 static ASTNode* parse_statement(Parser* parser);
 static ASTNode* parse_expression(Parser* parser);
 static ASTNode* parse_function(Parser* parser);
+static ASTNode* parse_return_statement(Parser* parser);
 
 static Token* advance_token(Parser* parser) {
     if (parser->current_token) {
@@ -25,133 +26,116 @@ static void parser_error(const char* message) {
 }
 
 static ASTNode* parse_expression(Parser* parser) {
-    // Parse left side
-    ASTNode* left;
-    if (parser->current_token->type == TOKEN_NUMBER) {
-        left = create_ast_node(AST_NUMBER, parser->current_token->value);
-        advance_token(parser);
-    } else if (parser->current_token->type == TOKEN_IDENTIFIER) {
-        left = create_ast_node(AST_IDENTIFIER, parser->current_token->value);
-        advance_token(parser);
-    } else {
-        parser_error("Expected number or identifier in expression");
-        return NULL;
-    }
-
-    // If there's no operator, return just the left side
-    if (parser->current_token->type != TOKEN_PLUS && 
-        parser->current_token->type != TOKEN_MINUS &&
-        parser->current_token->type != TOKEN_MULTIPLY &&
-        parser->current_token->type != TOKEN_DIVIDE &&
-        parser->current_token->type != TOKEN_LESS &&
-        parser->current_token->type != TOKEN_GREATER) {
-        return left;
-    }
-
-    // Parse operator
-    char* op;
     switch (parser->current_token->type) {
-        case TOKEN_PLUS: op = "+"; break;
-        case TOKEN_MINUS: op = "-"; break;
-        case TOKEN_MULTIPLY: op = "*"; break;
-        case TOKEN_DIVIDE: op = "/"; break;
-        case TOKEN_LESS: op = "<"; break;
-        case TOKEN_GREATER: op = ">"; break;
-        default: 
-            parser_error("Unknown operator");
+        case TOKEN_IDENTIFIER:
+        case TOKEN_NUMBER:
+        case TOKEN_STRING:
+            ASTNode* node = create_ast_node(
+                parser->current_token->type == TOKEN_STRING ? AST_STRING :
+                parser->current_token->type == TOKEN_NUMBER ? AST_NUMBER :
+                AST_IDENTIFIER,
+                parser->current_token->value
+            );
+            advance_token(parser);
+            
+            // Handle binary operations
+            if (parser->current_token->type == TOKEN_PLUS ||
+                parser->current_token->type == TOKEN_MINUS ||
+                parser->current_token->type == TOKEN_MULTIPLY ||
+                parser->current_token->type == TOKEN_DIVIDE ||
+                parser->current_token->type == TOKEN_LESS ||
+                parser->current_token->type == TOKEN_GREATER) {
+                
+                char* op = strdup(parser->current_token->value);
+                advance_token(parser);
+                
+                ASTNode* right = parse_expression(parser);
+                if (!right) {
+                    free(op);
+                    return NULL;
+                }
+                
+                ASTNode* binary = create_ast_node(AST_BINARY_OP, op);
+                add_child(binary, node);
+                add_child(binary, right);
+                free(op);
+                return binary;
+            }
+            
+            return node;
+            
+        default:
+            parser_error("Expected expression");
             return NULL;
     }
-    advance_token(parser);
-
-    // Parse right side
-    ASTNode* right;
-    if (parser->current_token->type == TOKEN_NUMBER) {
-        right = create_ast_node(AST_NUMBER, parser->current_token->value);
-        advance_token(parser);
-    } else if (parser->current_token->type == TOKEN_IDENTIFIER) {
-        right = create_ast_node(AST_IDENTIFIER, parser->current_token->value);
-        advance_token(parser);
-    } else {
-        parser_error("Expected number or identifier after operator");
-        return NULL;
-    }
-
-    // Create and return binary operation node
-    ASTNode* binary = create_ast_node(AST_BINARY_OP, op);
-    add_child(binary, left);
-    add_child(binary, right);
-    return binary;
 }
 
 static ASTNode* parse_statement(Parser* parser) {
     switch (parser->current_token->type) {
-        case TOKEN_CETAK: {
-            advance_token(parser);
-            
-            if (parser->current_token->type != TOKEN_LPAREN) {
-                parser_error("Expected '(' after 'cetak'");
-            }
-            advance_token(parser);
-
-            ASTNode* print_call = create_ast_node(AST_CALL, "cetak");
-            
-            // Parse argument (string atau identifier)
-            if (parser->current_token->type == TOKEN_STRING || 
-                parser->current_token->type == TOKEN_IDENTIFIER) {
-                ASTNode* arg = create_ast_node(
-                    parser->current_token->type == TOKEN_STRING ? AST_STRING : AST_IDENTIFIER,
-                    parser->current_token->value
-                );
-                add_child(print_call, arg);
-            } else {
-                parser_error("Expected string or identifier argument");
-            }
-            advance_token(parser);
-
-            if (parser->current_token->type != TOKEN_RPAREN) {
-                parser_error("Expected ')'");
-            }
-            advance_token(parser);
-
-            if (parser->current_token->type != TOKEN_SEMICOLON) {
-                parser_error("Expected ';'");
-            }
-            advance_token(parser);
-
-            return print_call;
-        }
-        
         case TOKEN_ISI: {
             advance_token(parser);
-            
             if (parser->current_token->type != TOKEN_IDENTIFIER) {
                 parser_error("Expected identifier after 'isi'");
+                return NULL;
             }
             char* var_name = strdup(parser->current_token->value);
             advance_token(parser);
-
+            
             if (parser->current_token->type != TOKEN_EQUALS) {
                 free(var_name);
-                parser_error("Expected '=' in variable declaration");
+                parser_error("Expected '=' after variable name");
+                return NULL;
             }
             advance_token(parser);
-
-            ASTNode* var_decl = create_ast_node(AST_VARIABLE_DECL, var_name);
+            
+            ASTNode* expr = parse_expression(parser);
+            if (!expr) {
+                free(var_name);
+                return NULL;
+            }
+            
+            ASTNode* decl = create_ast_node(AST_VARIABLE_DECL, var_name);
+            add_child(decl, expr);
             free(var_name);
-
-            // Parse the value expression
-            ASTNode* value = parse_expression(parser);
-            if (!value) {
-                parser_error("Invalid expression in variable declaration");
-            }
-            add_child(var_decl, value);
-
+            
             if (parser->current_token->type != TOKEN_SEMICOLON) {
-                parser_error("Expected ';'");
+                parser_error("Expected ';' after variable declaration");
+                return NULL;
             }
             advance_token(parser);
-
-            return var_decl;
+            return decl;
+        }
+        
+        case TOKEN_KEMBALI: {
+            return parse_return_statement(parser);
+        }
+        
+        case TOKEN_CETAK: {
+            advance_token(parser);
+            if (parser->current_token->type != TOKEN_LPAREN) {
+                parser_error("Expected '(' after 'cetak'");
+                return NULL;
+            }
+            advance_token(parser);
+            
+            ASTNode* expr = parse_expression(parser);
+            if (!expr) return NULL;
+            
+            if (parser->current_token->type != TOKEN_RPAREN) {
+                parser_error("Expected ')' after expression");
+                return NULL;
+            }
+            advance_token(parser);
+            
+            ASTNode* print = create_ast_node(AST_CALL, "cetak");
+            add_child(print, expr);
+            
+            if (parser->current_token->type != TOKEN_SEMICOLON) {
+                parser_error("Expected ';' after print statement");
+                return NULL;
+            }
+            advance_token(parser);
+            return print;
         }
         
         case TOKEN_KALO: {
@@ -215,27 +199,28 @@ static ASTNode* parse_statement(Parser* parser) {
             
             if (parser->current_token->type != TOKEN_LPAREN) {
                 parser_error("Expected '(' after 'ulang'");
+                return NULL;
             }
             advance_token(parser);
-
+            
             ASTNode* condition = parse_expression(parser);
-            if (!condition) {
-                parser_error("Invalid loop condition");
-            }
-
+            if (!condition) return NULL;
+            
             if (parser->current_token->type != TOKEN_RPAREN) {
-                parser_error("Expected ')'");
+                parser_error("Expected ')' after condition");
+                return NULL;
             }
             advance_token(parser);
-
+            
             if (parser->current_token->type != TOKEN_LBRACE) {
-                parser_error("Expected '{'");
+                parser_error("Expected '{' after condition");
+                return NULL;
             }
             advance_token(parser);
-
+            
             ASTNode* while_node = create_ast_node(AST_WHILE, NULL);
             add_child(while_node, condition);
-
+            
             ASTNode* body = create_ast_node(AST_BLOCK, NULL);
             while (parser->current_token->type != TOKEN_RBRACE) {
                 ASTNode* stmt = parse_statement(parser);
@@ -243,7 +228,7 @@ static ASTNode* parse_statement(Parser* parser) {
             }
             add_child(while_node, body);
             
-            advance_token(parser); // consume '}'
+            advance_token(parser);
             return while_node;
         }
         
@@ -275,129 +260,86 @@ static ASTNode* parse_statement(Parser* parser) {
     return NULL;
 }
 
-static DataType get_type_from_token(TokenType token_type) {
-    switch (token_type) {
-        case TOKEN_TYPE_INT: return TYPE_INT;
-        case TOKEN_TYPE_FLOAT: return TYPE_FLOAT;
-        case TOKEN_TYPE_BOOL: return TYPE_BOOLEAN;
-        case TOKEN_TYPE_STR: return TYPE_STRING;
-        default: return TYPE_VOID;
+static ASTNode* parse_return_statement(Parser* parser) {
+    if (parser->current_token->type != TOKEN_KEMBALI) {
+        parser_error("Expected 'kembali'");
     }
+    
+    ASTNode* return_node = create_ast_node(AST_RETURN, NULL);
+    advance_token(parser); // Lewati token 'kembali'
+    
+    // Parse expression yang akan di-return
+    if (parser->current_token->type == TOKEN_IDENTIFIER ||
+        parser->current_token->type == TOKEN_NUMBER ||
+        parser->current_token->type == TOKEN_STRING) {
+        
+        ASTNode* expr = parse_expression(parser);
+        add_child(return_node, expr);
+        
+        // Pastikan ada semicolon setelah expression
+        if (parser->current_token->type != TOKEN_SEMICOLON) {
+            parser_error("Expected ';' after return statement");
+        }
+        advance_token(parser); // Lewati semicolon
+    } else {
+        parser_error("Expected expression after 'kembali'");
+    }
+    
+    return return_node;
 }
 
 static ASTNode* parse_function(Parser* parser) {
-    // Debug: print current token
-    printf("Current token type: %d, value: %s\n", 
-           parser->current_token->type, 
-           parser->current_token->value ? parser->current_token->value : "NULL");
-    
-    // Parse function type
-    DataType return_type = TYPE_VOID;  // default untuk fungsi biasa
-    
-    // Handle function type or bikin fungsi
-    if (parser->current_token->type == TOKEN_BIKIN) {
-        advance_token(parser);
-        if (parser->current_token->type != TOKEN_FUNGSI) {
-            parser_error("Expected 'fungsi' after 'bikin'");
-        }
-        advance_token(parser);
-    } else {
-        switch (parser->current_token->type) {
-            case TOKEN_FUNGSI:
-                advance_token(parser);
-                break;
-            case TOKEN_FUNGSI_INT:
-                return_type = TYPE_INT;
-                advance_token(parser);
-                break;
-            case TOKEN_FUNGSI_FLOAT:
-                return_type = TYPE_FLOAT;
-                advance_token(parser);
-                break;
-            case TOKEN_FUNGSI_BOOL:
-                return_type = TYPE_BOOLEAN;
-                advance_token(parser);
-                break;
-            case TOKEN_FUNGSI_STR:
-                return_type = TYPE_STRING;
-                advance_token(parser);
-                break;
-            default:
-                parser_error("Expected function type or 'bikin fungsi'");
-        }
+    // Parse "bikin fungsi"
+    if (parser->current_token->type != TOKEN_BIKIN) {
+        parser_error("Expected 'bikin'");
+        return NULL;
     }
+    advance_token(parser);
 
-    // Debug: print token after function type
-    printf("Token after function type: %d, value: %s\n", 
-           parser->current_token->type, 
-           parser->current_token->value ? parser->current_token->value : "NULL");
+    if (parser->current_token->type != TOKEN_FUNGSI) {
+        parser_error("Expected 'fungsi'");
+        return NULL;
+    }
+    advance_token(parser);
 
     // Parse function name
     if (parser->current_token->type != TOKEN_IDENTIFIER) {
         parser_error("Expected function name");
+        return NULL;
     }
-    
     ASTNode* func = create_ast_node(AST_FUNCTION, parser->current_token->value);
-    func->data_type = return_type;
     advance_token(parser);
-    
+
     // Parse parameters
     if (parser->current_token->type != TOKEN_LPAREN) {
         parser_error("Expected '(' after function name");
+        return NULL;
     }
     advance_token(parser);
-    
-    while (parser->current_token->type != TOKEN_RPAREN) {
-        if (parser->current_token->type != TOKEN_IDENTIFIER) {
-            parser_error("Expected parameter name");
-        }
-        
-        char* param_name = strdup(parser->current_token->value);
-        advance_token(parser);
-        
-        // Parse parameter type
-        if (parser->current_token->type != TOKEN_COLON) {
-            free(param_name);
-            parser_error("Expected ':' after parameter name");
-        }
-        advance_token(parser);
-        
-        // Get parameter type
-        DataType param_type = get_type_from_token(parser->current_token->type);
-        if (param_type == TYPE_VOID) {
-            free(param_name);
-            parser_error("Invalid parameter type");
-        }
-        advance_token(parser);
-        
-        // Create parameter node
-        ASTNode* param = create_ast_node(AST_PARAMETER, param_name);
-        param->data_type = param_type;
-        add_child(func, param);
-        free(param_name);
-        
-        if (parser->current_token->type == TOKEN_COMMA) {
-            advance_token(parser);
-        } else if (parser->current_token->type != TOKEN_RPAREN) {
-            parser_error("Expected ',' or ')'");
-        }
+
+    if (parser->current_token->type != TOKEN_RPAREN) {
+        parser_error("Expected ')'");
+        return NULL;
     }
-    advance_token(parser);  // consume ')'
-    
+    advance_token(parser);
+
     // Parse function body
     if (parser->current_token->type != TOKEN_LBRACE) {
-        parser_error("Expected '{' after function parameters");
+        parser_error("Expected '{' after parameters");
+        return NULL;
     }
     advance_token(parser);
-    
+
     ASTNode* body = create_ast_node(AST_BLOCK, NULL);
     while (parser->current_token->type != TOKEN_RBRACE) {
         ASTNode* stmt = parse_statement(parser);
-        if (stmt) add_child(body, stmt);
+        if (stmt) {
+            add_child(body, stmt);
+        }
     }
     add_child(func, body);
-    
-    advance_token(parser);  // consume '}'
+    advance_token(parser);
+
     return func;
 }
 

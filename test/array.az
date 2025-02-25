@@ -1,0 +1,20 @@
+bikin fungsi main() {
+    // Test deklarasi array
+    isi angka = array[5];
+    cetak("Array dibuat!");
+    
+    // Test mengisi nilai array
+    angka[0] = 10;
+    angka[1] = 20;
+    angka[2] = 30;
+    
+    // Test membaca nilai array
+    cetak("Nilai array index 0: ");
+    cetak(angka[0]);
+    
+    cetak("Nilai array index 1: ");
+    cetak(angka[1]);
+
+    cetak("Nilai array index 1: ");
+    cetak(angka[2]);
+}

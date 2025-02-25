@@ -50,6 +50,9 @@ typedef enum {
     TOKEN_TYPE_FLOAT,  // Tambahkan ini untuk "float"
     TOKEN_TYPE_BOOL,   // Tambahkan ini untuk "bool"
     TOKEN_TYPE_STR,    // Tambahkan ini untuk "str"
+    TOKEN_LBRACKET,   // [
+    TOKEN_RBRACKET,   // ]
+    TOKEN_ARRAY,      // array
 } TokenType;
 
 typedef struct {

@@ -106,6 +106,7 @@ static Token* read_identifier(Lexer* lexer) {
     else if (strcmp(value, "isi") == 0) type = TOKEN_ISI;
     else if (strcmp(value, "benar") == 0) type = TOKEN_BENAR;
     else if (strcmp(value, "salah") == 0) type = TOKEN_SALAH;
+    else if (strcmp(value, "array") == 0) type = TOKEN_ARRAY;
     
     Token* token = create_token(type, value, lexer->line, start_col);
     free(value);
@@ -209,6 +210,8 @@ Token* get_next_token(Lexer* lexer) {
         case ')': return create_token(TOKEN_RPAREN, ")", current_line, current_col);
         case '{': return create_token(TOKEN_LBRACE, "{", current_line, current_col);
         case '}': return create_token(TOKEN_RBRACE, "}", current_line, current_col);
+        case '[': return create_token(TOKEN_LBRACKET, "[", current_line, current_col);
+        case ']': return create_token(TOKEN_RBRACKET, "]", current_line, current_col);
         case ';': return create_token(TOKEN_SEMICOLON, ";", current_line, current_col);
         case ',': return create_token(TOKEN_COMMA, ",", current_line, current_col);
         case '.': return create_token(TOKEN_DOT, ".", current_line, current_col);

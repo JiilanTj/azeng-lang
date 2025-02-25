@@ -1,0 +1,14 @@
+bikin fungsi main() {
+    // Test HTTP GET
+    cetak("Melakukan HTTP GET request...\n");
+    isi response = http_get("https://jsonplaceholder.typicode.com/posts/1");
+    cetak("Response dari GET:\n");
+    cetak(response);
+    
+    // Test HTTP POST
+    cetak("\nMelakukan HTTP POST request...\n");
+    isi data = "title=Test Post&body=Ini adalah test post&userId=1";
+    isi post_response = http_post("https://jsonplaceholder.typicode.com/posts", data);
+    cetak("Response dari POST:\n");
+    cetak(post_response);
+}

@@ -1,0 +1,17 @@
+#ifndef TYPES_H
+#define TYPES_H
+
+typedef enum {
+    TYPE_INT,
+    TYPE_FLOAT,
+    TYPE_BOOLEAN,
+    TYPE_STRING,
+    TYPE_VOID,
+    TYPE_ARRAY_INT,
+    TYPE_ARRAY_FLOAT,
+    TYPE_ARRAY_BOOL,
+    TYPE_ARRAY_STRING,
+    TYPE_HTTP_RESPONSE
+} DataType;
+
+#endif 

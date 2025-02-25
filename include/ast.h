@@ -1,6 +1,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include "types.h"
 #include <stdlib.h>
 
 // Tipe node AST
@@ -21,17 +22,12 @@ typedef enum {
     AST_ASSIGNMENT,    // untuk i = i + 1
     AST_PARAMETER,       // Untuk parameter fungsi
     AST_RETURN,         // Untuk return statement
-    AST_FUNCTION_DECL   // Untuk deklarasi fungsi
+    AST_FUNCTION_DECL,   // Untuk deklarasi fungsi
+    AST_ARRAY_DECL,    // Deklarasi array
+    AST_ARRAY_ACCESS,  // Akses elemen array
+    AST_ARRAY_ASSIGN,  // Assignment ke array
+    AST_ARRAY_LITERAL  // Nilai array langsung
 } ASTNodeType;
-
-// Tambahkan tipe data
-typedef enum {
-    TYPE_INT,
-    TYPE_FLOAT,
-    TYPE_BOOLEAN,
-    TYPE_STRING,
-    TYPE_VOID
-} DataType;
 
 // Struktur untuk parameter fungsi
 typedef struct {

@@ -13,6 +13,7 @@ static ASTNode* parse_expression(Parser* parser);
 static ASTNode* parse_function(Parser* parser);
 static ASTNode* parse_primary(Parser* parser);
 static ASTNode* parse_call(Parser* parser);
+static ASTNode* parse_array_declaration(Parser* parser);
 static bool expect_token(Parser* parser, TokenType type);
 
 // Tambahkan di bagian awal file, setelah includes
@@ -107,7 +108,13 @@ static ASTNode* parse_statement(Parser* parser) {
             }
             advance_token(parser);
             
-            ASTNode* expr = parse_expression(parser);
+            ASTNode* expr;
+            if (parser->current_token->type == TOKEN_ARRAY) {
+                expr = parse_array_declaration(parser);
+            } else {
+                expr = parse_expression(parser);
+            }
+            
             if (!expr) {
                 free(var_name);
                 return NULL;
@@ -522,6 +529,10 @@ static ASTNode* parse_primary(Parser* parser) {
             return node;
         }
         
+        case TOKEN_ARRAY: {
+            return parse_array_declaration(parser);
+        }
+        
         default:
             parser_error("Expected primary expression");
             return NULL;
@@ -612,4 +623,49 @@ static bool expect_token(Parser* parser, TokenType type) {
     }
     advance_token(parser);
     return true;
+}
+
+static ASTNode* parse_array_declaration(Parser* parser) {
+    ASTNode* array_node = create_ast_node(AST_ARRAY_DECL, NULL);
+    
+    // Skip token 'array'
+    advance_token(parser);
+    
+    // Parse tipe data array (int, float, dll)
+    if (parser->current_token->type == TOKEN_TYPE_INT) {
+        array_node->data_type = TYPE_ARRAY_INT;
+    } else if (parser->current_token->type == TOKEN_TYPE_FLOAT) {
+        array_node->data_type = TYPE_ARRAY_FLOAT;
+    } else if (parser->current_token->type == TOKEN_TYPE_BOOL) {
+        array_node->data_type = TYPE_ARRAY_BOOL;
+    } else if (parser->current_token->type == TOKEN_TYPE_STR) {
+        array_node->data_type = TYPE_ARRAY_STRING;
+    } else {
+        parser_error("Expected array type (int, float, bool, or str)");
+        return NULL;
+    }
+    advance_token(parser);
+    
+    // Expect '['
+    if (!expect_token(parser, TOKEN_LBRACKET)) {
+        parser_error("Expected '['");
+        return NULL;
+    }
+    
+    // Parse ukuran array
+    ASTNode* size = parse_expression(parser);
+    if (!size) {
+        free_ast(array_node);
+        return NULL;
+    }
+    add_child(array_node, size);
+    
+    // Expect ']'
+    if (!expect_token(parser, TOKEN_RBRACKET)) {
+        parser_error("Expected ']'");
+        free_ast(array_node);
+        return NULL;
+    }
+    
+    return array_node;
 }

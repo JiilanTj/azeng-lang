@@ -1,6 +1,6 @@
 bikin fungsi main() {
     // Test deklarasi array
-    isi angka = array[5];
+    isi angka = array int[5];
     cetak("Array dibuat!");
     
     // Test mengisi nilai array
@@ -15,6 +15,6 @@ bikin fungsi main() {
     cetak("Nilai array index 1: ");
     cetak(angka[1]);
 
-    cetak("Nilai array index 1: ");
+    cetak("Nilai array index 2: ");
     cetak(angka[2]);
 }

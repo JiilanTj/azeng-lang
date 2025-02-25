@@ -313,19 +313,31 @@ static Value evaluate_expression(Interpreter* interpreter, ASTNode* node) {
             Value right = evaluate_expression(interpreter, node->children[1]);
             
             if (left.type == TYPE_INT && right.type == TYPE_INT) {
-                result.type = TYPE_INT;
-                if (strcmp(node->value, "+") == 0)
+                if (strcmp(node->value, "+") == 0) {
+                    result.type = TYPE_INT;
                     result.value.int_val = left.value.int_val + right.value.int_val;
-                else if (strcmp(node->value, "-") == 0)
+                } 
+                else if (strcmp(node->value, "-") == 0) {
+                    result.type = TYPE_INT;
                     result.value.int_val = left.value.int_val - right.value.int_val;
-                else if (strcmp(node->value, "*") == 0)
+                }
+                else if (strcmp(node->value, "*") == 0) {
+                    result.type = TYPE_INT;
                     result.value.int_val = left.value.int_val * right.value.int_val;
-                else if (strcmp(node->value, "/") == 0)
+                }
+                else if (strcmp(node->value, "/") == 0) {
+                    result.type = TYPE_INT;
                     result.value.int_val = left.value.int_val / right.value.int_val;
-                else if (strcmp(node->value, "<") == 0)
+                }
+                // Tambahkan operator perbandingan
+                else if (strcmp(node->value, "<") == 0) {
+                    result.type = TYPE_BOOLEAN;
                     result.value.bool_val = left.value.int_val < right.value.int_val;
-                else if (strcmp(node->value, ">") == 0)
+                }
+                else if (strcmp(node->value, ">") == 0) {
+                    result.type = TYPE_BOOLEAN;
                     result.value.bool_val = left.value.int_val > right.value.int_val;
+                }
             }
             else if (left.type == TYPE_FLOAT && right.type == TYPE_FLOAT) {
                 result.type = TYPE_FLOAT;
@@ -597,15 +609,20 @@ static void interpret_if(Interpreter* interpreter, ASTNode* node) {
 }
 
 static void interpret_while(Interpreter* interpreter, ASTNode* node) {
-    if (node->children_count >= 2) {  // Harus punya kondisi dan body
-        while (1) {
-            Value condition = evaluate_expression(interpreter, node->children[0]);
-            int continue_loop = condition.value.bool_val;
-            
-            if (!continue_loop) break;
-            
-            interpret_block(interpreter, node->children[1]);
+    if (node->children_count < 2) return;
+    
+    while (1) {
+        // Evaluasi kondisi
+        Value condition = evaluate_expression(interpreter, node->children[0]);
+        if (condition.type != TYPE_BOOLEAN) {
+            fprintf(stderr, "Error: While condition must be boolean\n");
+            return;
         }
+        
+        if (!condition.value.bool_val) break;
+        
+        // Eksekusi body
+        interpret_block(interpreter, node->children[1]);
     }
 }
 

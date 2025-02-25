@@ -46,53 +46,47 @@ static void parser_error(const char* message) {
 }
 
 static ASTNode* parse_expression(Parser* parser) {
-    // Hapus atau comment out debug print
-    /*printf("Parsing expression, current token type: %d, value: %s\n", 
-           parser->current_token->type, 
-           parser->current_token->value);*/
+    ASTNode* left = parse_primary(parser);
+    if (!left) return NULL;
 
-    switch (parser->current_token->type) {
-        case TOKEN_NUMBER:
-        case TOKEN_STRING:
-        case TOKEN_IDENTIFIER:
-            return parse_primary(parser);
+    // Handle operators
+    while (parser->current_token) {
+        TokenType type = parser->current_token->type;
         
-        case TOKEN_ARRAY: {
-            // Handle array declaration
+        // Cek apakah token saat ini adalah operator
+        if (type == TOKEN_PLUS || type == TOKEN_MINUS || 
+            type == TOKEN_MULTIPLY || type == TOKEN_DIVIDE ||
+            type == TOKEN_LESS || type == TOKEN_GREATER) {
+            
+            char* op;
+            switch(type) {
+                case TOKEN_PLUS: op = "+"; break;
+                case TOKEN_MINUS: op = "-"; break;
+                case TOKEN_MULTIPLY: op = "*"; break;
+                case TOKEN_DIVIDE: op = "/"; break;
+                case TOKEN_LESS: op = "<"; break;
+                case TOKEN_GREATER: op = ">"; break;
+                default: op = "?"; break;
+            }
+            
             advance_token(parser);
             
-            if (parser->current_token->type != TOKEN_LBRACKET) {
-                parser_error("Expected '[' after 'array'");
+            ASTNode* right = parse_primary(parser);
+            if (!right) {
+                free_ast(left);
                 return NULL;
             }
-            advance_token(parser);
             
-            // Parse size expression
-            ASTNode* size = parse_expression(parser);
-            if (!size) return NULL;
-            
-            if (parser->current_token->type != TOKEN_RBRACKET) {
-                parser_error("Expected ']' after array size");
-                return NULL;
-            }
-            advance_token(parser);
-            
-            ASTNode* array_node = create_ast_node(AST_ARRAY_DECL, "array");
-            add_child(array_node, size);
-            return array_node;
+            ASTNode* binary = create_ast_node(AST_BINARY_OP, op);
+            add_child(binary, left);
+            add_child(binary, right);
+            left = binary;
+        } else {
+            break;
         }
-        
-        case TOKEN_BENAR:
-        case TOKEN_SALAH: {
-            ASTNode* node = create_ast_node(AST_BOOLEAN, parser->current_token->value);
-            advance_token(parser);
-            return node;
-        }
-        
-        default:
-            parser_error("Expected expression");
-            return NULL;
     }
+    
+    return left;
 }
 
 static ASTNode* parse_statement(Parser* parser) {
@@ -240,6 +234,7 @@ static ASTNode* parse_statement(Parser* parser) {
             }
             advance_token(parser);
             
+            // Parse kondisi
             ASTNode* condition = parse_expression(parser);
             if (!condition) return NULL;
             
@@ -255,17 +250,19 @@ static ASTNode* parse_statement(Parser* parser) {
             }
             advance_token(parser);
             
-            ASTNode* while_node = create_ast_node(AST_WHILE, NULL);
-            add_child(while_node, condition);
-            
+            // Parse body
             ASTNode* body = create_ast_node(AST_BLOCK, NULL);
             while (parser->current_token->type != TOKEN_RBRACE) {
                 ASTNode* stmt = parse_statement(parser);
                 if (stmt) add_child(body, stmt);
             }
+            advance_token(parser);
+            
+            // Buat node while
+            ASTNode* while_node = create_ast_node(AST_WHILE, NULL);
+            add_child(while_node, condition);
             add_child(while_node, body);
             
-            advance_token(parser);
             return while_node;
         }
         
